@@ -6,7 +6,7 @@ use tokio::{
 };
 
 use crate::{
-    roles::common, AppendEntriesRequest, AppendEntriesResponse, AppendEntriesResponseReason,
+    role::common, AppendEntriesRequest, AppendEntriesResponse, AppendEntriesResponseReason,
     ClientRequest, Command, LogEntry, NodeId, PeerRpc, RaftNode, Request, Response, Result, Store,
     Timeout,
 };

@@ -14,7 +14,7 @@ use tokio::{
 };
 
 use crate::{
-    roles::common, ClientRequest, ClientResponse, ClientResponseReason, NodeId, PeerRpc, RaftNode,
+    role::common, ClientRequest, ClientResponse, ClientResponseReason, NodeId, PeerRpc, RaftNode,
     Request, RequestVoteResponse, RequestVoteResponseReason, Response, Result, Store, Timeout,
 };
 

@@ -14,12 +14,12 @@ use tokio::{
 use uuid::Uuid;
 
 use crate::{
-    roles::TaskState, AppendEntriesRequest, AppendEntriesResponse, PeerRpc, RaftNodeBuilder,
+    role::TaskState, AppendEntriesRequest, AppendEntriesResponse, PeerRpc, RaftNodeBuilder,
     RaftSideChannels, Request, RequestVoteRequest, RequestVoteResponse, Response, Result, Store,
     Timeout,
 };
 
-use super::roles::{CandidateRole, FollowerRole, LeaderRole};
+use super::role::{CandidateRole, FollowerRole, LeaderRole};
 
 //--------------------------------------------------------------------------------------------------
 // Types

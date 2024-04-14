@@ -1,5 +1,5 @@
 use crate::{
-    roles::common, ClientRequest, ClientResponse, ClientResponseReason, PeerRpc, RaftNode, Request,
+    role::common, ClientRequest, ClientResponse, ClientResponseReason, PeerRpc, RaftNode, Request,
     Response, Result, Store,
 };
 

@@ -2,12 +2,12 @@
 
 mod builder;
 mod command;
-mod defaults;
-mod errors;
+mod default;
+mod error;
 mod node;
 mod request;
 mod response;
-mod roles;
+mod role;
 mod snapshot;
 mod store;
 mod timeout;
@@ -16,14 +16,14 @@ mod timeout;
 // Exports
 //--------------------------------------------------------------------------------------------------
 
-pub mod channels;
+pub mod channel;
 pub mod utils;
 
 pub use builder::*;
-pub use channels::*;
+pub use channel::*;
 pub use command::*;
-pub use defaults::*;
-pub use errors::*;
+pub use default::*;
+pub use error::*;
 pub use node::*;
 pub use request::*;
 pub use response::*;

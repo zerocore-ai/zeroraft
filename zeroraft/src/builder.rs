@@ -8,7 +8,7 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::{
-    roles::TaskState, NodeId, RaftNode, RaftNodeInner, RaftSideChannels, Request, Response, Result,
+    role::TaskState, NodeId, RaftNode, RaftNodeInner, RaftSideChannels, Request, Response, Result,
     Store, DEFAULT_ELECTION_TIMEOUT_RANGE, DEFAULT_HEARTBEAT_INTERVAL,
 };
 
