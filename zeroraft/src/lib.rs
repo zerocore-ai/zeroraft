@@ -2,7 +2,6 @@
 
 mod builder;
 mod command;
-mod default;
 mod error;
 mod node;
 mod request;
@@ -22,7 +21,6 @@ pub mod utils;
 pub use builder::*;
 pub use channel::*;
 pub use command::*;
-pub use default::*;
 pub use error::*;
 pub use node::*;
 pub use request::*;

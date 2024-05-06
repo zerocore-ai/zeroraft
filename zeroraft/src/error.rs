@@ -11,7 +11,7 @@ use thiserror::Error;
 /// A specialized `Result` type for zeroengine crate.
 pub type Result<T> = std::result::Result<T, ZeroraftError>;
 
-/// The main error type of the zeroengine crate.
+/// The main error type of the zeroraft crate.
 #[derive(Debug, Error)]
 pub enum ZeroraftError {
     /// Custom error.

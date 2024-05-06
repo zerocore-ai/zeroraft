@@ -6,10 +6,11 @@ use std::{
 
 use tokio::sync::RwLock;
 use uuid::Uuid;
+use zeroutils_config::default::{DEFAULT_ELECTION_TIMEOUT_RANGE, DEFAULT_HEARTBEAT_INTERVAL};
 
 use crate::{
     role::TaskState, NodeId, RaftNode, RaftNodeInner, RaftSideChannels, Request, Response, Result,
-    Store, DEFAULT_ELECTION_TIMEOUT_RANGE, DEFAULT_HEARTBEAT_INTERVAL,
+    Store,
 };
 
 //--------------------------------------------------------------------------------------------------

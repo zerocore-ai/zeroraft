@@ -16,9 +16,9 @@ use zeroraft::{
     channel,
     utils::mock::{MockRequest, MockResponse},
     AppendEntriesRequest, AppendEntriesResponse, ClientRequest, ClientResponse, NodeId, PeerRpc,
-    RaftNode, RequestVoteRequest, RequestVoteResponse, DEFAULT_ELECTION_TIMEOUT_RANGE,
-    DEFAULT_HEARTBEAT_INTERVAL,
+    RaftNode, RequestVoteRequest, RequestVoteResponse,
 };
+use zeroutils_config::default::{DEFAULT_ELECTION_TIMEOUT_RANGE, DEFAULT_HEARTBEAT_INTERVAL};
 
 use super::MemoryStore;
 

@@ -7,7 +7,8 @@ use std::{
 use anyhow::Ok;
 use futures::channel::oneshot;
 use tokio::task::JoinHandle;
-use zeroraft::{NodeId, DEFAULT_ELECTION_TIMEOUT_RANGE, DEFAULT_HEARTBEAT_INTERVAL};
+use zeroraft::NodeId;
+use zeroutils_config::default::{DEFAULT_ELECTION_TIMEOUT_RANGE, DEFAULT_HEARTBEAT_INTERVAL};
 
 use super::RaftNodeServer;
 
