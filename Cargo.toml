@@ -10,7 +10,7 @@ authors = ["Stephen Akinyemi <steve@zerocore.ai>"]
 edition = "2021"
 
 [workspace.dependencies]
-async-trait = "0.1.77"
+async-trait = "0.1.80"
 anyhow = "1.0.79"
 cbor4ii = { version = "0.3.2", features = ["serde1"] }
 clap = { version = "4.4.8", features = ["derive", "color"] }
