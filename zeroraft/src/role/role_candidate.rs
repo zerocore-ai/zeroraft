@@ -15,7 +15,8 @@ use tokio::{
 
 use crate::{
     role::common, ClientRequest, ClientResponse, ClientResponseReason, NodeId, PeerRpc, RaftNode,
-    Request, RequestVoteResponse, RequestVoteResponseReason, Response, Result, Store, Timeout,
+    Request, RequestVoteResponse, RequestVoteResponseReason, Response, Result, StateMachine,
+    Timeout,
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -35,7 +36,7 @@ pub(crate) enum VoteResult {
 /// A vote session.
 pub struct VoteSession<S, R, P>
 where
-    S: Store<R>,
+    S: StateMachine<R>,
     R: Request,
     P: Response,
 {
@@ -45,7 +46,7 @@ where
 /// The inner state of a vote session.
 pub struct VoteSessionInner<S, R, P>
 where
-    S: Store<R>,
+    S: StateMachine<R>,
     R: Request,
     P: Response,
 {
@@ -63,7 +64,7 @@ impl CandidateRole {
     /// Starts the candidate tasks.
     pub(crate) async fn start<S, R, P>(node: RaftNode<S, R, P>) -> Result<()>
     where
-        S: Store<R> + Sync + Send + 'static,
+        S: StateMachine<R> + Sync + Send + 'static,
         R: Request + Sync + Send + 'static,
         P: Response + Send + 'static,
     {
@@ -161,7 +162,7 @@ impl CandidateRole {
 
 impl<S, R, P> VoteSession<S, R, P>
 where
-    S: Store<R>,
+    S: StateMachine<R>,
     R: Request,
     P: Response,
 {
@@ -194,7 +195,14 @@ where
         let session = self.clone();
         tokio::spawn(timeouts(retry.clone(), election.clone(), async move {
             // NOTE: times out with retry and election
-            let peers_len = session.node.inner.store.read().await.get_membership().len();
+            let peers_len = session
+                .node
+                .inner
+                .state_machine
+                .read()
+                .await
+                .get_membership()
+                .len();
             let Some(unack_peers) = session.get_unack_peers().await? else {
                 return Ok(());
             };
@@ -264,7 +272,7 @@ where
     /// Gets the peers that have not acknowledged the vote request.
     async fn get_unack_peers(&self) -> Result<Option<HashSet<NodeId>>> {
         // TODO: This part can be done once in initialize. Need a peers field.
-        let peers = self.node.inner.store.read().await;
+        let peers = self.node.inner.state_machine.read().await;
         let peers = peers
             .get_membership()
             .keys()
@@ -314,7 +322,7 @@ where
 
 impl<S, R, P> Deref for VoteSession<S, R, P>
 where
-    S: Store<R>,
+    S: StateMachine<R>,
     R: Request,
     P: Response,
 {
@@ -327,7 +335,7 @@ where
 
 impl<S, R, P> Clone for VoteSession<S, R, P>
 where
-    S: Store<R>,
+    S: StateMachine<R>,
     R: Request,
     P: Response,
 {

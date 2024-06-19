@@ -9,8 +9,8 @@ use super::Request;
 // Traits
 //--------------------------------------------------------------------------------------------------
 
-/// `Store` is a trait that manages the log and state of a Raft consensus protocol node.
-pub trait Store<R>
+/// `StateMachine` is a trait that manages the log and state of a Raft consensus protocol node.
+pub trait StateMachine<R>
 where
     R: Request,
 {

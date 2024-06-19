@@ -8,7 +8,7 @@ mod request;
 mod response;
 mod role;
 mod snapshot;
-mod store;
+mod state;
 mod timeout;
 
 //--------------------------------------------------------------------------------------------------
@@ -26,7 +26,7 @@ pub use node::*;
 pub use request::*;
 pub use response::*;
 pub use snapshot::*;
-pub use store::*;
+pub use state::*;
 pub use timeout::*;
 
 //--------------------------------------------------------------------------------------------------

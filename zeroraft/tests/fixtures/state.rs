@@ -3,18 +3,18 @@ use std::{
     net::SocketAddr,
 };
 
-use zeroraft::{LogEntry, NodeId, Request, Snapshot, Store, ZeroraftError};
+use zeroraft::{LogEntry, NodeId, Request, Snapshot, StateMachine, ZeroraftError};
 
 //--------------------------------------------------------------------------------------------------
 // Types
 //--------------------------------------------------------------------------------------------------
 
-/// `MemoryStore` is a struct representing the log and memory of a Raft node stored in memory.
+/// `MemoryStateMachine` is a struct representing the log and memory of a Raft node stored in memory.
 ///
 /// It contains a vector of `LogEntry` instances. Each `LogEntry` contains a term number and a command.
-/// The `MemoryStore` struct is parameterized over a type `C` that implements the `Request` trait, allowing for flexibility in the specific commands that can be included in a log entry.
+/// The `MemoryStateMachine` struct is parameterized over a type `C` that implements the `Request` trait, allowing for flexibility in the specific commands that can be included in a log entry.
 #[derive(Debug)]
-pub struct MemoryStore<R>
+pub struct MemoryStateMachine<R>
 where
     R: Request,
 {
@@ -61,7 +61,7 @@ pub struct MemorySnapshot {
 
 impl Snapshot for MemorySnapshot {}
 
-impl<R> Store<R> for MemoryStore<R>
+impl<R> StateMachine<R> for MemoryStateMachine<R>
 where
     R: Request + Send + Sync,
 {
@@ -160,7 +160,7 @@ where
     }
 }
 
-impl<R> Default for MemoryStore<R>
+impl<R> Default for MemoryStateMachine<R>
 where
     R: Request,
 {

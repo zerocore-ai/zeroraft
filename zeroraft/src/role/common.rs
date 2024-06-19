@@ -4,7 +4,8 @@ use tokio::sync::mpsc;
 
 use crate::{
     AppendEntriesRequest, AppendEntriesResponse, AppendEntriesResponseReason, RaftNode, Request,
-    RequestVoteRequest, RequestVoteResponse, RequestVoteResponseReason, Response, Result, Store,
+    RequestVoteRequest, RequestVoteResponse, RequestVoteResponseReason, Response, Result,
+    StateMachine,
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -23,7 +24,7 @@ pub(crate) async fn respond_to_request_vote<S, R, P>(
     response_tx: mpsc::Sender<RequestVoteResponse>,
 ) -> Result<()>
 where
-    S: Store<R>,
+    S: StateMachine<R>,
     R: Request,
     P: Response,
 {
@@ -66,8 +67,8 @@ where
     node.change_to_follower_state().await;
 
     // Check candidate's completeness.
-    let our_last_log_index = node.inner.store.read().await.get_last_index();
-    let our_last_log_term = node.inner.store.read().await.get_last_term();
+    let our_last_log_index = node.inner.state_machine.read().await.get_last_index();
+    let our_last_log_term = node.inner.state_machine.read().await.get_last_term();
     if (our_last_log_term > candidate_last_log_term)
         || (our_last_log_term == candidate_last_log_term
             && our_last_log_index > candidate_last_log_index)
@@ -104,14 +105,14 @@ pub(crate) async fn respond_to_append_entries<S, R, P>(
     response_tx: mpsc::Sender<AppendEntriesResponse>,
 ) -> Result<()>
 where
-    S: Store<R>,
+    S: StateMachine<R>,
     R: Request,
     P: Response,
 {
     let leader_term = request.term;
     let our_term = node.get_current_term();
     let our_id = node.get_id();
-    let our_last_log_index = node.inner.store.read().await.get_last_index();
+    let our_last_log_index = node.inner.state_machine.read().await.get_last_index();
     let len = request.entries.len() as u64;
 
     // Check if their term is stale.
@@ -159,7 +160,7 @@ where
     // Check if log index exists but the term doesn't match.
     if let Some(entry) = node
         .inner
-        .store
+        .state_machine
         .read()
         .await
         .get_entry(request.prev_log_index)
@@ -181,22 +182,22 @@ where
 
     // Remove extraneous entries.
     node.inner
-        .store
+        .state_machine
         .write()
         .await
         .remove_entries_after(request.prev_log_index)?;
 
     // Append the entries.
     node.inner
-        .store
+        .state_machine
         .write()
         .await
         .append_entries(request.entries)?;
 
     // Update the commit index.
-    let our_last_log_index = node.inner.store.read().await.get_last_index();
+    let our_last_log_index = node.inner.state_machine.read().await.get_last_index();
     node.inner
-        .store
+        .state_machine
         .write()
         .await
         .set_last_commit_index(cmp::min(request.last_commit_index, our_last_log_index))?;

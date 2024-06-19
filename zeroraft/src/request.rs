@@ -49,7 +49,7 @@ where
     /// This is the term of the prev_log_index entry.
     pub prev_log_term: u64,
 
-    /// Log entries to store.
+    /// Log entries to the state machine.
     ///
     /// These are the entries the leader picked up that are to be saved.
     /// It is empty if the leader is sending a heartbeat.

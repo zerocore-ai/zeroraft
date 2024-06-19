@@ -10,7 +10,7 @@ use zeroutils_config::default::{DEFAULT_ELECTION_TIMEOUT_RANGE, DEFAULT_HEARTBEA
 
 use crate::{
     role::TaskState, NodeId, RaftNode, RaftNodeInner, RaftSideChannels, Request, Response, Result,
-    Store,
+    StateMachine,
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -20,14 +20,14 @@ use crate::{
 /// Builder for a Raft node.
 pub struct RaftNodeBuilder<S, R, P, Channels = ()>
 where
-    S: Store<R>,
+    S: StateMachine<R>,
     R: Request,
 {
     _s: std::marker::PhantomData<S>,
     _r: std::marker::PhantomData<R>,
     _p: std::marker::PhantomData<P>,
     id: NodeId,
-    store: S,
+    state_machine: S,
     seeds: HashMap<NodeId, SocketAddr>,
     channels: Channels,
     election_timeout_range: (u64, u64),
@@ -40,7 +40,7 @@ where
 
 impl<S, R, P, Channels> RaftNodeBuilder<S, R, P, Channels>
 where
-    S: Store<R>,
+    S: StateMachine<R>,
     R: Request,
     P: Response,
 {
@@ -50,13 +50,13 @@ where
         self
     }
 
-    /// Sets the store of the Raft node.
-    pub fn store(mut self, store: S) -> Self {
-        self.store = store;
+    /// Sets the state machinc of the Raft node.
+    pub fn state_machine(mut self, state_machine: S) -> Self {
+        self.state_machine = state_machine;
         self
     }
 
-    /// Sets the seed peers of the Raft node only if the store does not have a membership yet.
+    /// Sets the seed peers of the Raft node only if the state machine does not have a membership yet.
     pub fn seeds(mut self, seeds: HashMap<NodeId, SocketAddr>) -> Self {
         self.seeds = seeds;
         self
@@ -84,7 +84,7 @@ where
             _r: self._r,
             _p: self._p,
             id: self.id,
-            store: self.store,
+            state_machine: self.state_machine,
             seeds: self.seeds,
             election_timeout_range: self.election_timeout_range,
             heartbeat_interval: self.heartbeat_interval,
@@ -95,26 +95,26 @@ where
 
 impl<S, R, P> RaftNodeBuilder<S, R, P, RaftSideChannels<R, P>>
 where
-    S: Store<R>,
+    S: StateMachine<R>,
     R: Request,
     P: Response,
 {
     /// Builds the Raft node.
     pub fn build(mut self) -> Result<RaftNode<S, R, P>> {
-        // Load the current term, voted for from the store.
-        let current_term = AtomicU64::new(self.store.load_current_term());
-        let voted_for = RwLock::new(self.store.load_voted_for());
+        // Load the current term, voted for from the state machine.
+        let current_term = AtomicU64::new(self.state_machine.load_current_term());
+        let voted_for = RwLock::new(self.state_machine.load_voted_for());
 
         // We check if there is no membership yet, in which case we use the provided seeds.
-        if self.store.get_membership().is_empty() {
-            self.store.set_initial_membership(self.seeds)?;
+        if self.state_machine.get_membership().is_empty() {
+            self.state_machine.set_initial_membership(self.seeds)?;
         }
 
         let inner = Arc::new(RaftNodeInner {
             id: self.id,
             current_term,
             voted_for,
-            store: RwLock::new(self.store),
+            state_machine: RwLock::new(self.state_machine),
             channels: self.channels,
             current_state: RwLock::new(TaskState::Follower),
             election_timeout_range: self.election_timeout_range,
@@ -133,7 +133,7 @@ where
 
 impl<S, R, P, Channels> Default for RaftNodeBuilder<S, R, P, Channels>
 where
-    S: Store<R> + Default,
+    S: StateMachine<R> + Default,
     R: Request,
     Channels: Default,
 {
@@ -143,7 +143,7 @@ where
             _r: std::marker::PhantomData,
             _p: std::marker::PhantomData,
             id: Uuid::new_v4(),
-            store: Default::default(),
+            state_machine: Default::default(),
             seeds: Default::default(),
             election_timeout_range: DEFAULT_ELECTION_TIMEOUT_RANGE,
             heartbeat_interval: DEFAULT_HEARTBEAT_INTERVAL,

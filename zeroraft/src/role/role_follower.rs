@@ -1,6 +1,6 @@
 use crate::{
     role::common, ClientRequest, ClientResponse, ClientResponseReason, PeerRpc, RaftNode, Request,
-    Response, Result, Store,
+    Response, Result, StateMachine,
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -19,7 +19,7 @@ impl FollowerRole {
     /// Starts the follower tasks.
     pub(crate) async fn start<S, R, P>(node: RaftNode<S, R, P>) -> Result<()>
     where
-        S: Store<R> + Send + Sync + 'static,
+        S: StateMachine<R> + Send + Sync + 'static,
         R: Request + Send + Sync + 'static,
         P: Response + Send + Sync + 'static,
     {

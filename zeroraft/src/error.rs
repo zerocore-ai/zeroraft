@@ -22,9 +22,9 @@ pub enum ZeroraftError {
     #[error("tokio channel send error: {0}")]
     TokioSendError(String),
 
-    /// Errors from the store.
-    #[error("store error: {0}")]
-    StoreError(#[from] anyhow::Error),
+    /// Errors from the state machine.
+    #[error("state machine error: {0}")]
+    StateMachineError(#[from] anyhow::Error),
 }
 
 //--------------------------------------------------------------------------------------------------

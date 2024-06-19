@@ -15,8 +15,8 @@ use uuid::Uuid;
 
 use crate::{
     role::TaskState, AppendEntriesRequest, AppendEntriesResponse, PeerRpc, RaftNodeBuilder,
-    RaftSideChannels, Request, RequestVoteRequest, RequestVoteResponse, Response, Result, Store,
-    Timeout,
+    RaftSideChannels, Request, RequestVoteRequest, RequestVoteResponse, Response, Result,
+    StateMachine, Timeout,
 };
 
 use super::role::{CandidateRole, FollowerRole, LeaderRole};
@@ -32,11 +32,11 @@ pub type NodeId = Uuid;
 /// A `RaftNode` represents a single node in a Raft consensus cluster.
 ///
 /// Each node has a unique ID, a current term, a voted_for field to keep track of the node it has voted for,
-/// a store for entries, and a role which can be either `Follower`, `Candidate`, or `Leader`.
+/// a state machine for entries, and a role which can be either `Follower`, `Candidate`, or `Leader`.
 /// The role determines how the node responds to incoming requests.
 pub struct RaftNode<S, R, P>
 where
-    S: Store<R>,
+    S: StateMachine<R>,
     R: Request,
     P: Response,
 {
@@ -47,7 +47,7 @@ where
 /// The inner state of a Raft node.
 pub(crate) struct RaftNodeInner<S, R, P>
 where
-    S: Store<R>,
+    S: StateMachine<R>,
     R: Request,
     P: Response,
 {
@@ -60,8 +60,8 @@ where
     /// The ID of the node that the current node voted for in the current term.
     pub(crate) voted_for: RwLock<Option<NodeId>>,
 
-    /// The store for node's log and state.
-    pub(crate) store: RwLock<S>,
+    /// The state machine for node's log and state.
+    pub(crate) state_machine: RwLock<S>,
 
     /// The communication channels for the node.
     pub(crate) channels: RaftSideChannels<R, P>,
@@ -89,7 +89,7 @@ where
 
 impl<S, R, P> RaftNode<S, R, P>
 where
-    S: Store<R> + Send + Sync + 'static,
+    S: StateMachine<R> + Send + Sync + 'static,
     R: Request + Clone + Send + Sync + 'static,
     P: Response + Send + Sync + 'static,
 {
@@ -126,7 +126,7 @@ where
 
 impl<S, R, P> RaftNode<S, R, P>
 where
-    S: Store<R>,
+    S: StateMachine<R>,
     R: Request,
     P: Response,
 {
@@ -185,9 +185,13 @@ where
         candidate_id: NodeId,
     ) -> Result<()> {
         // Persist values to disk first.
-        self.inner.store.write().await.store_current_term(term)?;
         self.inner
-            .store
+            .state_machine
+            .write()
+            .await
+            .store_current_term(term)?;
+        self.inner
+            .state_machine
             .write()
             .await
             .store_voted_for(candidate_id)?;
@@ -202,7 +206,11 @@ where
     /// Updates the current term of the node.
     pub(super) async fn update_current_term(&self, term: u64) -> Result<()> {
         // Persist value to disk first.
-        self.inner.store.write().await.store_current_term(term)?;
+        self.inner
+            .state_machine
+            .write()
+            .await
+            .store_current_term(term)?;
 
         // Update in-memory value.
         self.inner.current_term.store(term, Ordering::SeqCst);
@@ -283,7 +291,7 @@ where
     /// Fetches the peer address of a node in the cluster.
     pub async fn get_peer(&self, id: &NodeId) -> Option<SocketAddr> {
         self.inner
-            .store
+            .state_machine
             .read()
             .await
             .get_membership()
@@ -310,8 +318,8 @@ where
         peer: NodeId,
         vote_tx: mpsc::UnboundedSender<RequestVoteResponse>,
     ) -> Result<()> {
-        let last_log_index = self.inner.store.read().await.get_last_index();
-        let last_log_term = self.inner.store.read().await.get_last_term();
+        let last_log_index = self.inner.state_machine.read().await.get_last_index();
+        let last_log_term = self.inner.state_machine.read().await.get_last_term();
 
         // Create request
         let request = RequestVoteRequest {
@@ -399,7 +407,7 @@ where
 
 impl<S, R, P> Clone for RaftNode<S, R, P>
 where
-    S: Store<R>,
+    S: StateMachine<R>,
     R: Request,
     P: Response,
 {
