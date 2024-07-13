@@ -20,14 +20,14 @@ use zeroraft::{
 };
 use zeroutils_config::default::{DEFAULT_ELECTION_TIMEOUT_RANGE, DEFAULT_HEARTBEAT_INTERVAL};
 
-use super::MemoryStateMachine;
+use super::MemoryState;
 
 //--------------------------------------------------------------------------------------------------
 // Types
 //--------------------------------------------------------------------------------------------------
 
 /// This is a convenience type alias for a Raft node with an in-memory state machine.
-pub type MemRaftNode<R, P> = RaftNode<MemoryStateMachine<R>, R, P>;
+pub type MemRaftNode<R, P> = RaftNode<MemoryState<R>, R, P>;
 
 /// `RaftNodeServer` wraps a Raft node and provides a server for client and peer connections.
 pub struct RaftNodeServer {

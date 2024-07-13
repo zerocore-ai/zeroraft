@@ -15,8 +15,8 @@ use uuid::Uuid;
 
 use crate::{
     role::TaskState, AppendEntriesRequest, AppendEntriesResponse, PeerRpc, RaftNodeBuilder,
-    RaftSideChannels, Request, RequestVoteRequest, RequestVoteResponse, Response, Result,
-    StateMachine, Timeout,
+    RaftSideChannels, Request, RequestVoteRequest, RequestVoteResponse, Response, Result, State,
+    Timeout,
 };
 
 use super::role::{CandidateRole, FollowerRole, LeaderRole};
@@ -36,7 +36,7 @@ pub type NodeId = Uuid;
 /// The role determines how the node responds to incoming requests.
 pub struct RaftNode<S, R, P>
 where
-    S: StateMachine<R>,
+    S: State<R>,
     R: Request,
     P: Response,
 {
@@ -47,7 +47,7 @@ where
 /// The inner state of a Raft node.
 pub(crate) struct RaftNodeInner<S, R, P>
 where
-    S: StateMachine<R>,
+    S: State<R>,
     R: Request,
     P: Response,
 {
@@ -58,16 +58,16 @@ where
     pub(crate) current_term: AtomicU64,
 
     /// The ID of the node that the current node voted for in the current term.
-    pub(crate) voted_for: RwLock<Option<NodeId>>,
+    pub(crate) voted_for: RwLock<Option<NodeId>>, // TODO: Use std::sync::RwLock
 
-    /// The state machine for node's log and state.
-    pub(crate) state_machine: RwLock<S>,
+    /// The state manager for node's log and state.
+    pub(crate) state: RwLock<S>,
 
     /// The communication channels for the node.
     pub(crate) channels: RaftSideChannels<R, P>,
 
     /// The current state of the node.
-    pub(crate) current_state: RwLock<TaskState>,
+    pub(crate) current_state: RwLock<TaskState>, // TODO: Use std::sync::RwLock.
 
     /// Election timeout range.
     pub(crate) election_timeout_range: (u64, u64),
@@ -76,11 +76,11 @@ where
     pub(crate) heartbeat_interval: u64,
 
     /// The current leader id.
-    pub(crate) leader_id: RwLock<Option<NodeId>>,
+    pub(crate) leader_id: RwLock<Option<NodeId>>, // TODO: Use std::sync::RwLock
 
     /// Last time the node heard from the leader.
     /// Used to prevent unnecessary voting when there is a stable leader.
-    pub(crate) last_heard_from_leader: RwLock<Option<Instant>>,
+    pub(crate) last_heard_from_leader: RwLock<Option<Instant>>, // TODO: Use std::sync::RwLock
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -89,7 +89,7 @@ where
 
 impl<S, R, P> RaftNode<S, R, P>
 where
-    S: StateMachine<R> + Send + Sync + 'static,
+    S: State<R> + Send + Sync + 'static,
     R: Request + Clone + Send + Sync + 'static,
     P: Response + Send + Sync + 'static,
 {
@@ -126,7 +126,7 @@ where
 
 impl<S, R, P> RaftNode<S, R, P>
 where
-    S: StateMachine<R>,
+    S: State<R>,
     R: Request,
     P: Response,
 {
@@ -185,13 +185,9 @@ where
         candidate_id: NodeId,
     ) -> Result<()> {
         // Persist values to disk first.
+        self.inner.state.write().await.store_current_term(term)?;
         self.inner
-            .state_machine
-            .write()
-            .await
-            .store_current_term(term)?;
-        self.inner
-            .state_machine
+            .state
             .write()
             .await
             .store_voted_for(candidate_id)?;
@@ -206,11 +202,7 @@ where
     /// Updates the current term of the node.
     pub(super) async fn update_current_term(&self, term: u64) -> Result<()> {
         // Persist value to disk first.
-        self.inner
-            .state_machine
-            .write()
-            .await
-            .store_current_term(term)?;
+        self.inner.state.write().await.store_current_term(term)?;
 
         // Update in-memory value.
         self.inner.current_term.store(term, Ordering::SeqCst);
@@ -291,7 +283,7 @@ where
     /// Fetches the peer address of a node in the cluster.
     pub async fn get_peer(&self, id: &NodeId) -> Option<SocketAddr> {
         self.inner
-            .state_machine
+            .state
             .read()
             .await
             .get_membership()
@@ -318,8 +310,8 @@ where
         peer: NodeId,
         vote_tx: mpsc::UnboundedSender<RequestVoteResponse>,
     ) -> Result<()> {
-        let last_log_index = self.inner.state_machine.read().await.get_last_index();
-        let last_log_term = self.inner.state_machine.read().await.get_last_term();
+        let last_log_index = self.inner.state.read().await.get_last_index();
+        let last_log_term = self.inner.state.read().await.get_last_term();
 
         // Create request
         let request = RequestVoteRequest {
@@ -407,7 +399,7 @@ where
 
 impl<S, R, P> Clone for RaftNode<S, R, P>
 where
-    S: StateMachine<R>,
+    S: State<R>,
     R: Request,
     P: Response,
 {

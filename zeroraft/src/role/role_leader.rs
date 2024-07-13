@@ -7,8 +7,8 @@ use tokio::{
 
 use crate::{
     role::common, AppendEntriesRequest, AppendEntriesResponse, AppendEntriesResponseReason,
-    ClientRequest, Command, LogEntry, NodeId, PeerRpc, RaftNode, Request, Response, Result,
-    StateMachine, Timeout,
+    ClientRequest, Command, LogEntry, NodeId, PeerRpc, RaftNode, Request, Response, Result, State,
+    Timeout,
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -22,7 +22,7 @@ pub(crate) struct LeaderRole;
 /// The replication session of a leader.
 pub(crate) struct ReplicationSession<S, R, P>
 where
-    S: StateMachine<R>,
+    S: State<R>,
     R: Request,
     P: Response,
 {
@@ -32,11 +32,11 @@ where
 /// The inner state of a replication session.
 pub(crate) struct ReplicationSessionInner<S, R, P>
 where
-    S: StateMachine<R>,
+    S: State<R>,
     R: Request,
     P: Response,
 {
-    peers: RwLock<HashMap<NodeId, (u64, Option<u64>)>>, // (node_id, (next_index, match_index))
+    peers: RwLock<HashMap<NodeId, (u64, Option<u64>)>>, // (node_id, (next_index, match_index)) // TODO: Use std::sync::RwLock
     stop_signal: Arc<Notify>,
     node: RaftNode<S, R, P>,
 }
@@ -49,7 +49,7 @@ impl LeaderRole {
     /// Starts the leader tasks.
     pub(crate) async fn start<S, R, P>(node: RaftNode<S, R, P>) -> Result<()>
     where
-        S: StateMachine<R> + Sync + Send + 'static,
+        S: State<R> + Sync + Send + 'static,
         R: Request + Clone + Sync + Send + 'static,
         P: Response + Send + 'static,
     {
@@ -96,7 +96,7 @@ impl LeaderRole {
                         term: node.get_current_term(),
                         command: Command::ClientRequest(request)
                     }];
-                    node.inner.state_machine.write().await.append_entries(entries)?;
+                    node.inner.state.write().await.append_entries(entries)?;
                 },
                 _ = heartbeat_timeout.continuation() => {
                     heartbeat_timeout.reset();
@@ -111,22 +111,16 @@ impl LeaderRole {
 
 impl<S, R, P> ReplicationSession<S, R, P>
 where
-    S: StateMachine<R>,
+    S: State<R>,
     R: Request,
     P: Response,
 {
     /// Initializes a new replication session.
     async fn initialize(node: RaftNode<S, R, P>) -> ReplicationSession<S, R, P> {
-        let next_index = node
-            .inner
-            .state_machine
-            .read()
-            .await
-            .get_last_commit_index()
-            + 1;
+        let next_index = node.inner.state.read().await.get_last_commit_index() + 1;
         let peers = node
             .inner
-            .state_machine
+            .state
             .read()
             .await
             .get_membership()
@@ -152,7 +146,7 @@ where
     /// Sends heartbeats to all peers.
     async fn send_heartbeats(&mut self, heartbeat: Timeout)
     where
-        S: StateMachine<R> + Send + Sync + 'static,
+        S: State<R> + Send + Sync + 'static,
         R: Request + Send + 'static,
         P: Response + Send + 'static,
     {
@@ -189,17 +183,11 @@ where
         append_entries_tx: mpsc::UnboundedSender<AppendEntriesResponse>,
     ) -> Result<()>
     where
-        S: StateMachine<R> + Send + Sync + 'static,
+        S: State<R> + Send + Sync + 'static,
         R: Request + Send + 'static,
         P: Response + Send + 'static,
     {
-        let last_commit_index = self
-            .node
-            .inner
-            .state_machine
-            .read()
-            .await
-            .get_last_commit_index();
+        let last_commit_index = self.node.inner.state.read().await.get_last_commit_index();
         let peers = self.peers.read().await;
 
         for (peer, _) in peers.iter() {
@@ -230,7 +218,7 @@ where
     /// Starts a standby task to update the peers continuously.
     async fn start_standby_update(&mut self)
     where
-        S: StateMachine<R> + Send + Sync + 'static,
+        S: State<R> + Send + Sync + 'static,
         R: Request + Send + Clone + 'static,
         P: Response + Send + 'static,
     {
@@ -262,7 +250,7 @@ where
                         let our_last_commit_index = session
                             .node
                             .inner
-                            .state_machine
+                            .state
                             .read()
                             .await
                             .get_last_commit_index();
@@ -276,7 +264,7 @@ where
                                 session
                                     .node
                                     .inner
-                                    .state_machine
+                                    .state
                                     .write()
                                     .await
                                     .set_last_commit_index(last_commit_index)?;
@@ -301,7 +289,7 @@ where
         append_entries_tx: mpsc::UnboundedSender<AppendEntriesResponse>,
     ) -> Result<()>
     where
-        S: StateMachine<R> + Send + Sync + 'static,
+        S: State<R> + Send + Sync + 'static,
         R: Request + Send + Clone + 'static,
         P: Response + Send + 'static,
     {
@@ -349,26 +337,20 @@ where
         let peers = self.peers.read().await;
         let (next_index, _) = peers.get(&peer).unwrap();
 
-        let last_commit_index = self
-            .node
-            .inner
-            .state_machine
-            .read()
-            .await
-            .get_last_commit_index();
+        let last_commit_index = self.node.inner.state.read().await.get_last_commit_index();
         let prev_log_index = next_index - 1;
 
         let prev_log_term = self
             .node
             .inner
-            .state_machine
+            .state
             .read()
             .await
             .get_entry(prev_log_index)
             .unwrap()
             .term;
 
-        let entries = self.node.inner.state_machine.read().await;
+        let entries = self.node.inner.state.read().await;
         let entries = entries.get_entries(*next_index, None).cloned().collect();
 
         AppendEntriesRequest {
@@ -384,13 +366,7 @@ where
     /// Gets peers that are behind the leader.
     async fn get_stale_peers(&self) -> Result<Vec<NodeId>> {
         let peers = self.peers.read().await;
-        let our_last_log_index = self
-            .node
-            .inner
-            .state_machine
-            .read()
-            .await
-            .get_last_commit_index();
+        let our_last_log_index = self.node.inner.state.read().await.get_last_commit_index();
 
         // Compare the each peer's next_index with the leader's last log index.
         let stale_peers = peers
@@ -410,13 +386,7 @@ where
     /// Check if peer's log has caught up and matches the leader's log.
     async fn peer_matches(&self, peer: NodeId) -> bool {
         let peers = self.peers.read().await;
-        let our_last_log_index = self
-            .node
-            .inner
-            .state_machine
-            .read()
-            .await
-            .get_last_commit_index();
+        let our_last_log_index = self.node.inner.state.read().await.get_last_commit_index();
         let (_, match_index) = peers.get(&peer).unwrap();
 
         match_index
@@ -450,7 +420,7 @@ where
         let median_index_term = self
             .node
             .inner
-            .state_machine
+            .state
             .read()
             .await
             .get_entry(median_index)
@@ -472,7 +442,7 @@ where
 
 impl<S, R, P> Deref for ReplicationSession<S, R, P>
 where
-    S: StateMachine<R>,
+    S: State<R>,
     R: Request,
     P: Response,
 {
@@ -485,7 +455,7 @@ where
 
 impl<S, R, P> Clone for ReplicationSession<S, R, P>
 where
-    S: StateMachine<R>,
+    S: State<R>,
     R: Request,
     P: Response,
 {

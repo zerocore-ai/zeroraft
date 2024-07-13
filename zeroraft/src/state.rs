@@ -9,8 +9,8 @@ use super::Request;
 // Traits
 //--------------------------------------------------------------------------------------------------
 
-/// `StateMachine` is a trait that manages the log and state of a Raft consensus protocol node.
-pub trait StateMachine<R>
+/// `State` is a trait that manages the log and state of a Raft consensus protocol node.
+pub trait State<R>
 where
     R: Request,
 {
