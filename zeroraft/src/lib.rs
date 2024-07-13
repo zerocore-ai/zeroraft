@@ -15,11 +15,11 @@ mod timeout;
 // Exports
 //--------------------------------------------------------------------------------------------------
 
-pub mod channel;
+pub mod channels;
 pub mod utils;
 
 pub use builder::*;
-pub use channel::*;
+pub use channels::*;
 pub use command::*;
 pub use error::*;
 pub use node::*;

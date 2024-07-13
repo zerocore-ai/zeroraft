@@ -13,7 +13,7 @@ use tokio::{
     task::JoinHandle,
 };
 use zeroraft::{
-    channel,
+    channels,
     utils::mock::{MockRequest, MockResponse},
     AppendEntriesRequest, AppendEntriesResponse, ClientRequest, ClientResponse, NodeId, PeerRpc,
     RaftNode, RequestVoteRequest, RequestVoteResponse,
@@ -162,7 +162,7 @@ impl RaftNodeServerBuilder {
 
     /// Build the Raft node.
     pub fn build(self) -> anyhow::Result<RaftNodeServer> {
-        let (raft_channels, outside_channels) = channel::create();
+        let (raft_channels, outside_channels) = channels::create();
 
         let node = MemRaftNode::<MockRequest, MockResponse>::builder()
             .id(self.id)
